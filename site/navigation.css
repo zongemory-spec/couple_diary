@@ -1,0 +1,35 @@
+/* Every feature keeps its own heading and home action outside the scrolling content. */
+body.feature-active{overflow:hidden}
+body.feature-active main{height:100svh;height:100dvh;display:flex;flex-direction:column;min-height:0}
+body.feature-active:not([data-mode=shop]) main{padding-bottom:calc(18px + env(safe-area-inset-bottom))!important}
+body.feature-active .top-chrome{position:relative;flex:none;overflow:hidden;max-height:110px;min-height:0;transform:none;transition:max-height 230ms var(--ui-ease),opacity 150ms ease}
+body.feature-active .top-chrome header{padding:0 0 8px!important;min-height:60px!important}
+body.feature-active .season-toolbar,body.feature-active .greeting{display:none!important}
+body.feature-active.chrome-hidden .top-chrome{max-height:0;opacity:0;pointer-events:none;transform:none}
+body.feature-active #feature-view{flex:1;min-height:0;display:flex;flex-direction:column}
+body.feature-active .section-heading{padding-top:8px!important;padding-bottom:8px!important;flex:none;gap:12px}
+body.feature-active .section-heading h2{font-size:22px;line-height:1.5}
+.feature-identity{display:flex;align-items:center;gap:10px;flex:1 1 190px;min-width:0}
+.feature-title{min-width:0;flex:1}
+.feature-title h2{overflow-wrap:anywhere}
+/* Independent viewport anchor: never enters the collapsing brand or animated feature panel. */
+#home-button{position:fixed;left:max(12px,env(safe-area-inset-left));top:max(8px,env(safe-area-inset-top));z-index:30;display:grid;place-items:center;width:44px;height:44px;min-height:44px;border-radius:50%;background:var(--surface-strong);border:1px solid var(--line);font:26px/1 system-ui,sans-serif;color:var(--ink);padding:0;box-shadow:0 3px 16px #1b17241a;backdrop-filter:blur(12px)}
+body.feature-active .top-chrome header{padding-left:54px!important}
+body.feature-active .section-heading{padding-left:54px!important}
+
+body.feature-active .feature-toolbar{flex:none}
+body.feature-active #context-tip{flex:none}
+body.feature-active:not([data-mode=shop]) #content{display:block;flex:1;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;overflow-anchor:none;padding:4px 2px 30px;scroll-padding-top:12px;scrollbar-gutter:stable}
+body.feature-active .meeting-page{margin-bottom:12px}
+.ship-order{margin:8px 0;min-height:40px}
+@media(max-width:700px){
+ body.feature-active main{padding-top:max(8px,env(safe-area-inset-top))!important}
+ body.feature-active .section-heading{gap:6px 10px!important}
+ body.feature-active .section-heading>.feature-identity{flex:1 1 170px}
+ body.feature-active .section-heading h2{font-size:21px;letter-spacing:.5px}
+ body.feature-active .section-heading p{font-size:10px;line-height:1.6}
+ body.feature-active .section-tools{flex:0 1 auto;gap:5px}
+ body.feature-active:not([data-mode=shop]) #content{padding-right:1px;padding-left:1px;scrollbar-gutter:auto}
+ .feature-identity{gap:8px}
+}
+body.reduce-motion .top-chrome{transition:none!important}
