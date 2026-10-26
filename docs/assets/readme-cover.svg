@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="380" viewBox="0 0 1120 380" role="img" aria-labelledby="title desc">
+  <title id="title">Couple Diary — A little home for two.</title>
+  <desc id="desc">Four illustrated windows: cherry blossoms, summer fireworks, five-lobed maple leaves, and a softly lit snowy night.</desc>
+  <defs>
+    <linearGradient id="paper" x2="1" y2="1"><stop stop-color="#fff9f3"/><stop offset="1" stop-color="#f6eef2"/></linearGradient>
+    <linearGradient id="spring" x2="0" y2="1"><stop stop-color="#f7dce5"/><stop offset="1" stop-color="#fff1e2"/></linearGradient>
+    <linearGradient id="summer" x2="0" y2="1"><stop stop-color="#273358"/><stop offset="1" stop-color="#756180"/></linearGradient>
+    <linearGradient id="autumn" x2="0" y2="1"><stop stop-color="#f7ddba"/><stop offset="1" stop-color="#c35c51"/></linearGradient>
+    <linearGradient id="winter" x2="0" y2="1"><stop stop-color="#7795af"/><stop offset="1" stop-color="#e5edf0"/></linearGradient>
+    <clipPath id="windows"><rect x="562" y="48" width="502" height="258" rx="28"/></clipPath>
+    <g id="blossom" fill="#fff3f5"><ellipse cy="-6" rx="3.7" ry="6"/><ellipse cy="-6" rx="3.7" ry="6" transform="rotate(72)"/><ellipse cy="-6" rx="3.7" ry="6" transform="rotate(144)"/><ellipse cy="-6" rx="3.7" ry="6" transform="rotate(216)"/><ellipse cy="-6" rx="3.7" ry="6" transform="rotate(288)"/><circle r="2.5" fill="#d88b9d"/></g>
+    <g id="maple"><path d="M0-25 6-9 25-5 11 6 15 24 0 14-15 24-11 6-25-5-6-9Z" fill="#a93b3a"/><path d="M0-18V30M0 6 19-4M0 6-19-4M0 10 10 19M0 10-10 19" fill="none" stroke="#e8a572" stroke-width="1.1"/></g>
+    <g id="burst" fill="none" stroke-linecap="round"><path d="M0-14V-32M10-10 24-24M14 0H34M10 10 24 24M0 14V32M-10 10-24 24M-14 0H-34M-10-10-24-24"/><path d="M5-12 11-26M12-5 28-11M12 5 28 11M5 12 11 26M-5 12-11 26M-12 5-28 11M-12-5-28-11M-5-12-11-26" opacity=".5" stroke-width="1.3"/></g>
+  </defs>
+  <rect width="1120" height="380" rx="30" fill="url(#paper)"/>
+  <path d="M0 327Q190 296 390 340T790 334T1120 314V380H0Z" fill="#eadde5" opacity=".6"/>
+  <g font-family="Segoe UI, Helvetica, Arial, sans-serif">
+    <text x="60" y="82" font-size="13" letter-spacing="3" fill="#986e80">YOUR DAYS, TOGETHER</text>
+    <text x="56" y="150" font-size="52" font-weight="600" letter-spacing="-2" fill="#513d51">Couple Diary</text>
+    <text x="60" y="194" font-size="23" fill="#7d6275">A little home for two.</text>
+    <path d="M62 231H112" stroke="#b58a9d" stroke-width="3" stroke-linecap="round"/>
+    <text x="60" y="270" font-size="15" fill="#806c7a">Small moments. Shared memories.</text>
+    <text x="60" y="295" font-size="15" fill="#806c7a">Seasons to come back to.</text>
+  </g>
+  <g clip-path="url(#windows)">
+    <path fill="url(#spring)" d="M562 48H687V306H562Z"/>
+    <path fill="url(#summer)" d="M687 48H813V306H687Z"/>
+    <path fill="url(#autumn)" d="M813 48H939V306H813Z"/>
+    <path fill="url(#winter)" d="M939 48H1064V306H939Z"/>
+    <path d="M557 203Q620 170 693 213V307H557Z" fill="#d7b3bb" opacity=".55"/>
+    <path d="M570 53Q610 96 650 160M597 86 669 103M625 127 575 141" stroke="#986a75" stroke-width="5" fill="none"/>
+    <use href="#blossom" transform="translate(588 78) scale(1.3)"/><use href="#blossom" transform="translate(611 99)"/><use href="#blossom" transform="translate(642 103) scale(1.2)"/><use href="#blossom" transform="translate(661 109)"/><use href="#blossom" transform="translate(623 133) scale(1.3)"/><use href="#blossom" transform="translate(588 142)"/><use href="#blossom" transform="translate(651 159)"/>
+    <g fill="#fff4f6"><ellipse cx="652" cy="210" rx="3" ry="6" transform="rotate(28 652 210)"/><ellipse cx="597" cy="237" rx="3" ry="5" transform="rotate(-35 597 237)"/><ellipse cx="626" cy="188" rx="3" ry="5"/></g>
+    <path d="M687 253Q747 238 813 254V307H687Z" fill="#303c5b"/>
+    <use href="#burst" transform="translate(740 122) scale(1.05)" stroke="#ffdb9b" stroke-width="2.4"/><use href="#burst" transform="translate(793 183) scale(.65)" stroke="#eeafc6" stroke-width="2"/>
+    <g fill="#f5d7b1"><circle cx="777" cy="77" r="1.8"/><circle cx="709" cy="198" r="1.5"/><circle cx="792" cy="107" r="1.6"/></g>
+    <path d="M728 270 744 286M773 273 783 281" stroke="#dbaaac" stroke-width="2" opacity=".6"/>
+    <path d="M817 219 865 191 931 215V236H817Z" fill="#8b574c"/><path d="M814 217H934M826 235H930M838 235V285M876 235V285M918 235V285" stroke="#643f3b" stroke-width="4" fill="none"/><path d="M813 287 939 262V306H813Z" fill="#904f46"/>
+    <use href="#maple" transform="translate(842 80) scale(.8) rotate(-20)"/><use href="#maple" transform="translate(902 124) scale(.65) rotate(25)"/><use href="#maple" transform="translate(857 168) scale(.47) rotate(-48)"/><use href="#maple" transform="translate(920 251) scale(.35) rotate(40)"/>
+    <circle cx="1035" cy="92" r="20" fill="#f9e8cc" opacity=".8"/>
+    <path d="M938 245Q999 209 1066 238V307H938Z" fill="#f1f1ec"/><path d="M970 223V183H1027V223Z" fill="#758391"/><path d="M963 184 998 157 1035 184Z" fill="#536d85"/><path d="M959 184 998 153 1039 184" stroke="#eaf0ef" stroke-width="7" fill="none"/>
+    <path d="M988 221V197H1008V221Z" fill="#fce2a5"/><path d="M988 220 966 251H1031L1008 220Z" fill="#ffe7af" opacity=".36"/>
+    <g fill="#fff" opacity=".85"><circle cx="963" cy="86" r="2.5"/><circle cx="990" cy="116" r="2"/><circle cx="1044" cy="153" r="2.5"/><circle cx="955" cy="176" r="2"/><circle cx="1016" cy="134" r="1.7"/><circle cx="1043" cy="234" r="2.3"/><circle cx="970" cy="272" r="2.1"/></g>
+  </g>
+  <path d="M687 57V297M813 57V297M939 57V297" stroke="#fff8f2" stroke-width="5"/>
+  <g font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="10" letter-spacing="1.5" text-anchor="middle" fill="#9b788a"><text x="624" y="332">SPRING</text><text x="750" y="332">SUMMER</text><text x="876" y="332">AUTUMN</text><text x="1001" y="332">WINTER</text></g>
+</svg>
