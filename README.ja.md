@@ -123,10 +123,12 @@
 
 ## 開発とビルド
 
+主ブランチへのコミットとPRでテストと静的ビルドを実行します。[CIガイド・中国語](docs/CI.md)を参照し、初回アップロード後は[Actions](https://github.com/zongemory-spec/couple_diary/actions/workflows/checks.yml)で実際の結果を確認してください。
+
 Node.js 24+とPython 3を使用します。ビルドはPythonの標準ライブラリのみを使い、テストの依存関係はnpmでインストールします。
 
 ```sh
-npm install
+npm ci --ignore-scripts
 npm test
 python3 tools/build.py
 ```
