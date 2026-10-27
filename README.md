@@ -106,10 +106,12 @@
 
 ## 开发与构建
 
+工作流见 [自动检查与网页构建](docs/CI.md)：向主分支提交或创建 PR 时运行测试并构建网页。首次上传后，请在 [Actions](https://github.com/zongemory-spec/couple_diary/actions/workflows/checks.yml) 核对实际结果。
+
 需要 Node.js 24+ 与 Python 3。构建仅用 Python 标准库，测试依赖通过 npm 安装。
 
 ```sh
-npm install
+npm ci --ignore-scripts
 npm test
 python3 tools/build.py
 ```

@@ -123,10 +123,12 @@ Nicknames may appear on the public sign-in screen. Do not use private contact de
 
 ## Development
 
+See [CI and build instructions — Chinese](docs/CI.md). Pushes to main and pull requests run the tests and static build. Check the actual result in [Actions](https://github.com/zongemory-spec/couple_diary/actions/workflows/checks.yml) after uploading the workflow.
+
 Use Node.js 24+ and Python 3. The build uses only Python's standard library; npm installs the test dependencies.
 
 ```sh
-npm install
+npm ci --ignore-scripts
 npm test
 python3 tools/build.py
 ```
