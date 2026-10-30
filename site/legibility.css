@@ -1,0 +1,25 @@
+/* The scenery stays visible; text uses solid ink over a quieter glass layer. */
+body[data-season="spring"]{--surface:#fffaf2d9;--content-surface:#fffaf2e8;--surface-strong:#fffaf2f5;--surface-soft:#fffaf2cc;--ink:#30282e;--text:#51434b;--accent:#843e57;--button-ink:#fffaf5;--reading-halo:#fffaf2;--line:#66505d2b}
+body[data-season="summer"]{--surface:#132238df;--content-surface:#132238eb;--surface-strong:#132238f7;--surface-soft:#132238d6;--ink:#fff9ef;--text:#e5dccf;--accent:#edc48a;--button-ink:#202331;--reading-halo:#101c2f;--line:#ffeace33}
+body[data-season="autumn"]{--surface:#fff2dfd9;--content-surface:#fff2dfe8;--surface-strong:#fff4e5f5;--surface-soft:#fff2dfcc;--ink:#33261d;--text:#53402d;--accent:#823d24;--button-ink:#fff9ef;--reading-halo:#fff2df;--line:#62432c2b}
+body[data-season="winter"]{--surface:#f1f8f7db;--content-surface:#f1f8f7e8;--surface-strong:#f5faf8f5;--surface-soft:#f1f8f7cc;--ink:#203747;--text:#3c5260;--accent:#315f77;--button-ink:#fffaf0;--reading-halo:#f1f8f7;--line:#375a6d2b}
+.menu-tile,.note-card,.card{backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.note-card,.card,.shop{background:var(--content-surface)}
+.shop{backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.menu-tile b,.card h3,.product h3,.note-body,.note-body p,.card p,.order-line,.order-status,.reply-bubble,.totals{color:var(--ink);opacity:1}
+.menu-tile small,.product p,.meta,.note-meta,.note-card time,.note-body small,.soft-status,.price small,.bag-summary small,.form-field>span,.form-note,.help,.tag,.warning{color:var(--text);opacity:1}
+.menu-tile small{font-size:12px;line-height:1.6}.tile-icon,.price{color:var(--accent)}
+.note-card time{font-size:12px}.meta{font-size:12px}.product p{font-size:14px;line-height:1.8}
+.section-heading{background:linear-gradient(90deg,var(--surface-soft),transparent 96%)!important;border-radius:12px;padding-left:12px!important;padding-right:10px!important}
+.section-heading h2,.inbox-heading h2{color:var(--ink);text-shadow:none}
+.inbox-heading{background:linear-gradient(90deg,var(--surface),var(--surface-soft) 65%,transparent)}
+.greeting,.diary-heading,.scene-breath #season-label{text-shadow:0 1px 2px var(--reading-halo),0 0 9px var(--reading-halo)}
+header:before{height:145px;background:linear-gradient(180deg,#fffaf2ed,#fffaf291 52%,transparent)}
+body[data-season="summer"] header:before{background:linear-gradient(180deg,#101c2ff5,#101c2f9c 52%,transparent)}
+body[data-season="autumn"] header:before{background:linear-gradient(180deg,#fff2dfed,#fff2df91 52%,transparent)}
+body[data-season="winter"] header:before{background:linear-gradient(180deg,#f1f8f7ed,#f1f8f791 52%,transparent)}
+.categories button,.categories button.active{color:var(--ink)}.categories button.active{color:var(--accent)}
+.note-meta button{color:var(--ink);opacity:1}.note-card .reactions button,.reactions button{color:var(--ink);background:var(--surface-soft)}
+.choices button.active,.primary,.stepper button{color:var(--button-ink)}.stepper button.minus{color:var(--ink)}
+.meeting-strip{background:var(--surface);color:var(--ink)}.meeting-strip span:last-child{color:var(--text)}
+@media(max-width:700px){.menu-tile small{font-size:11px}.product p{font-size:12px;line-height:1.8}.note-meta,.meta{font-size:12px}.note-card time{font-size:11px}.scene-breath #together-days{font-size:12px}.meeting-strip span:last-child{font-size:11px}.meeting-strip span:first-child{min-width:0}.section-heading p{color:var(--text)}}

@@ -1,0 +1,5 @@
+[functions.diary-mail]
+# This backend worker authenticates the scheduler using its own long random secret.
+# There is no browser-facing mail-send endpoint or arbitrary recipient parameter.
+verify_jwt = false
+
