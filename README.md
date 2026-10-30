@@ -9,7 +9,7 @@
 一个支持邮箱注册、邀请绑定与多小屋隔离的情侣日记应用。  
 可以直接在线使用，也可以部署自己的站点。
 
-[在线体验](https://couple-diary-v02.pages.dev/) · [部署指南](docs/DEPLOY.md) · [反馈问题](https://github.com/zongemory-spec/couple_diary/issues)
+[在线体验](https://couple-diary-v02.pages.dev/) · [部署指南](docs/DEPLOY.md) · [反馈与验收](docs/FEEDBACK.md)
 
 [![自动检查](https://github.com/zongemory-spec/couple_diary/actions/workflows/checks.yml/badge.svg?branch=main)](https://github.com/zongemory-spec/couple_diary/actions/workflows/checks.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-sagegreen.svg)](LICENSE)
@@ -40,6 +40,12 @@
 | 🔔 邮件提醒 | 支持邀请、来信和日记事件通知，可关闭个人业务提醒。 |
 
 小铺未接入真实支付或物流。外部商品链接跳转购物平台，实际交易由平台完成。
+
+## 体验反馈与迭代
+
+当前处于早期体验阶段，维护者已确认注册与登录恢复正常，正在收集体验反馈。其他真实服务验收仍按场景记录，不将自动测试通过等同全部线上验收完成。
+
+[报告问题](https://github.com/zongemory-spec/couple_diary/issues/new?template=bug_report.yml) · [提出建议](https://github.com/zongemory-spec/couple_diary/issues/new?template=feature_request.yml) · [验收与处理记录](docs/FEEDBACK.md)
 
 ## 从独立部署到多人使用
 
