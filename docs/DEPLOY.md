@@ -1,57 +1,39 @@
-# 新手部署：每对情侣独立一份
+# 维护者部署与普通用户使用
 
-## 1. 复制模板
+维护者只部署一个站点，普通情侣只需邮箱注册和接受邀请。上传源码到 GitHub 不会自动创建数据库或配置发信服务。
 
-在公开仓库点 Use this template → Create a new repository。Owner选自己的账号，名称可用 `our-love-diary`，Public或Private均可。不要把仓库当作日记存储；日记保存在后续自己的Supabase中。
+## 1. 创建后台
 
-## 2. 创建后台与两位用户
+新建 Supabase 项目，SQL Editor 粘贴执行 `database/install.sql` 全文。它创建多房间表、私有照片和文档桶、邀请、信件、邮件队列及 RPC 权限。脚本可以重复运行；若已有旧单房间数据库，它会直接报错中止。不要把 service_role 或 SMTP 密码放进网页。
 
-到 https://supabase.com/dashboard 创建项目，按当时可用套餐选择。保存好数据库密码，后面不要填到网页配置。
+## 2. 开启注册和注册邮件
 
-进入 Authentication → Users → Add user → Create new user，分别为两人创建账号（邮箱不同），勾选Auto Confirm User，密码各自保管。复制各自User UID / UUID。
-在 Authentication 的Sign In / Providers设置中保留Email登录，关闭 Allow new users to sign up 与 Allow anonymous sign-ins。
+Authentication 设置中允许 Email 注册，开启 Confirm email，密码最短长度设10。保持默认 ConfirmationURL 邮件模板，使用邮箱链接验证和找回密码。前端使用 Auth 的 implicit 回调，获取并校验用户后清除地址中的 token。
 
-## 3. 用离线向导生成文件
+配置 Custom SMTP。发件邮箱是维护者统一账号，推荐先用 QQ SMTP 做个人验证；面向更多用户时选择能满足配额的服务。默认 Supabase 测试 SMTP 不能用于向任意陌生邮箱发送注册邮件。供应商限额/风控可能造成投递失败。
 
-从GitHub Code → Download ZIP，解压后用Chrome/Edge等浏览器打开根目录 `setup.html`。
+URL Configuration 的 Site URL 填正式 HTTPS 网站根路径，Redirect URLs 加入同一完整地址，例如 `https://your-diary.pages.dev/`。若托管在 GitHub Pages 子目录，要填写含仓库目录的地址并以 `/` 结尾，邮件 DIARY_SITE_URL 也保持一致。测试域名应另行加入允许列表，发布后不要保留不需要的通配跳转规则。
 
-7项输入：两位称呼、恋爱纪念日、Project URL、Publishable key、两位UUID。Project URL通常可在项目首页或Connect找到；Publishable key在API Keys中。
+官方说明：[SMTP](https://supabase.com/docs/guides/auth/auth-smtp)、[邮箱密码登录](https://supabase.com/docs/guides/auth/passwords)、[跳转地址](https://supabase.com/docs/guides/auth/redirect-urls)。
 
-点击“生成我的配置”，分别下载初始化脚本和config.js。向导没有联网请求；不输入任何用户密码、数据库密码或SMTP密码。
+## 3. 生成公开配置
 
-打开 `setup-private.sql`，全选复制到Supabase SQL Editor的新查询中 → Run。最后应显示a、b两行。报错先按错误核对，不要删除已有表或改成公开权限。
+下载/克隆完整源码，本机双击 `setup.html`，填 Project URL 和 Publishable key，下载 `config.js` 后覆盖 `site/config.js`。配置工具离线运行。这里只放公开 key，不能用 `sb_secret_`、service_role、密码、SMTP 授权码。无需创建成员账号或手工绑定 UUID。
 
-## 4. 写入自己的前端连接配置
+## 4. 构建与托管
 
-自己的GitHub仓库 → site → config.js → 编辑铅笔按钮，完整粘贴刚生成config.js的内容 → Commit changes。
+Node.js 24+、Python 3.12+：`npm ci --ignore-scripts` → `npm test` → `npm run build`。网站产物是 `dist/index.html` 和 `_headers`，保留两者。
 
-config.js包含可公开的URL/Publishable key与显示称呼。生成的SQL只在你自己的后台运行，不必上传GitHub。
+- Cloudflare Pages：连接仓库，构建命令 `npm run build`、输出 `dist`。也可本机构建后手动上传 dist 文件。
+- GitHub：上传解压后的源码文件（不是把 ZIP 当作源码上传），Actions 自动测试并提供静态产物。若不想提交公开 config.js，可在仓库 Variables 设置 `SUPABASE_URL`、`SUPABASE_PUBLISHABLE_KEY`，工作流已读取。两者均为公开配置。
+- GitHub Pages：从 Actions 下载构建产物发布到 Pages 分支或自行配置 Pages 部署。当前工作流不会替你公开发布。
 
-## 5. 自动部署网页
+不要发布仓库根目录；数据库 SQL、文档、测试和配置工具只留在仓库中。用正式域名重新检查注册确认、找回密码和邀请链接。
 
-Cloudflare控制台 → Workers & Pages → Create application → 找到Pages入口（可能需要Continue to Pages）→ Connect to Git / Import Git repository → GitHub。
-授权访问你要部署的仓库即可，选择刚复制的仓库，项目名自己起。
+## 5. 业务邮件和使用验收
 
-| 设置 | 填写 |
-|---|---|
-| Production branch | main（如果自己的默认分支不同，选实际默认分支） |
-| Framework preset | None |
-| Build command | python3 tools/build.py |
-| Build output directory | dist |
-| Root directory | 保持默认仓库根目录 |
+按 [MAIL.md](MAIL.md) 部署邮件后台与定时任务，然后按 [CHECKS.md](CHECKS.md) 用4个邮箱验证两对情侣。没有业务邮件服务时，注册确认仍需 Auth SMTP；复制邀请链接与站内日记/信件仍可工作。
 
-保存并部署。访问分配的正式pages.dev地址，双方分别登录并验证照片、心情、订单同步。不要在URL后加源码目录或中文文件夹路径。
+## 更新与旧版
 
-若走Direct Upload：本地运行Python构建，将dist里的两个文件压缩为ZIP，保持ZIP根目录直接是index.html和_headers，然后在Pages的Production中上传。首次配置后用Git集成能省掉每次重新上传。
-
-## 常见问题
-
-- 页面提示“请先配置”：config.js仍为空，或环境变量只填了一项；修正后重新部署。
-- 登录账号“不在两人名单”：确认是在这个项目创建了两位Auth用户，向导内UUID正确，SQL已成功执行。
-- 新邮箱无法登录：检查Auto Confirm User或后台确认状态，Email登录仍需开启。
-- 相片/附件失败：检查初始化SQL是否完整执行、桶为Private、登录有效；不要改成Public来修复。
-- 手机上网页不更新：先用无痕窗口访问正式地址，确认访问的是自己的项目。
-- 首次绑定失败：修正信息后重跑生成SQL。它不会清空已有日记，也不会覆盖不同成员的现有绑定。
-- 邮件没到：基础部署没有启用定时邮件；单独按MAIL.md配置后再验证。
-
-先在双方日常网络实测。域名/流量/存储付费与访问情况依所用平台和所在地而定，模板本身不收取费用。
+先备份数据库和 Storage。只对本版 UUID 多小屋数据库重复执行当前 install.sql，再重新部署前端。旧版整数 id=1 数据库不能原地升级；先保留旧站、导出备份和下载照片，在新项目新建小屋。当前不支持自动导入旧数据，也不提供解除绑定和换伴侣入口。

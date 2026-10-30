@@ -3,22 +3,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const {pathToFileURL}=require('node:url'),{randomUUID}=require('node:crypto');
 const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222222222',C='33333333-3333-4333-8333-333333333333';
 let db,initial;
-before(async()=>{
-  const lib=await require('./pglite.cjs')();
-  db=new lib.PGlite();await db.waitReady;
-  await db.exec(`create role anon;create role authenticated;create role service_role;create schema auth;create schema storage;
-  create table auth.users(id uuid primary key,email text);
-  create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
-  create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
-  create table storage.objects(id uuid default gen_random_uuid() primary key,bucket_id text,name text,metadata jsonb);
-  create function storage.foldername(text) returns text[] language sql immutable as $$select (string_to_array($1,'/'))[1:array_length(string_to_array($1,'/'),1)-1]$$;
-  alter table storage.objects enable row level security;grant usage on schema public,auth,storage to anon,authenticated,service_role;
-  insert into auth.users values('${A}','a@example.com'),('${B}','b@example.com'),('${C}','c@example.com');`);
-  for(const file of ['01-初始化.sql','03-邮件提醒.sql','03-邮件提醒.sql'])await db.exec(fs.readFileSync(path.resolve(__dirname,'./fixtures/'+file),'utf8'));
-  await db.query('insert into public.diary_members values($1,\'a\'),($2,\'b\')',[A,B]);
-  initial=(await db.query('select body from public.diary_house')).rows[0].body;
-});
-beforeEach(async()=>{await db.exec('reset role');await db.exec(fs.readFileSync(path.resolve(__dirname,'./fixtures/07-订单发货邮件.sql'),'utf8'));await db.query("select set_config('request.jwt.claim.sub','',false)");await db.exec('truncate public.diary_mail_outbox,public.diary_mail_preferences,public.diary_commits');await db.query('update public.diary_house set body=$1::jsonb,revision=0',[JSON.stringify(initial)])});
+before(async()=>{const {PGlite}=await require('./pglite.cjs')();db=new PGlite();await db.waitReady;await require('./backend.cjs').bootstrap(db);initial=(await db.query('select body from public.diary_house')).rows[0].body});
+beforeEach(async()=>{await db.exec('reset role');await db.exec(require('./backend.cjs').install());await db.query("select set_config('request.jwt.claim.sub','',false)");await db.exec('truncate public.diary_mail_outbox,public.diary_mail_preferences,public.diary_commits');await db.query('update public.diary_house set body=$1::jsonb,revision=0',[JSON.stringify(initial)])});
 after(async()=>{await db?.close()});
 async function member(id,fn){await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec('set role authenticated');try{return await fn()}finally{await db.exec('reset role')}}
 async function service(name,args=[]){await db.exec('set role service_role');try{return (await db.query(name,args)).rows[0]?.result}finally{await db.exec('reset role')}}
@@ -105,34 +91,27 @@ test('wish database: a partner cannot destroy a wish or forge a different memory
   await assert.rejects(()=>save(B,s=>s.entries=[]),/DIARY_FORBIDDEN/);
   await assert.rejects(()=>save(B,s=>{s.entries=[];s.entries.push({id:'fake',kind:'memory',author:'b',title:'覆盖',content:'改了',sourceWishId:'wish-1',wishAuthor:'a',fulfilledBy:'b',date:'2026-10-22',createdAt:2,photos:[]})}),/DIARY_FORBIDDEN/);
 });
-test('Gmail database: fixed sender is slot b and the only recipients are the two bound users',async()=>{
-  const ctx=await service('select public.diary_mail_context() result');assert.equal(ctx.sender_slot,'b');assert.equal(ctx.sender_email,'b@example.com');assert.deepEqual(ctx.allowed_emails,['a@example.com','b@example.com']);
-  await assert.rejects(()=>member(A,()=>db.query('select public.diary_mail_context()')),/permission denied/);
-});
-test('upgrade migration: legacy physical products move to wishes once, keeping other saved products',async()=>{
-  await save(A,s=>s.products.push({id:'kiwi',name:'猕猴桃',note:'想吃',category:'实物',author:'a',createdAt:1},{id:'tea',name:'奶茶',category:'陪伴',author:'a',createdAt:1}));
-  const sql=fs.readFileSync(path.resolve(__dirname,'./fixtures/05-界面与心愿升级.sql'),'utf8');await db.query("select set_config('request.jwt.claim.sub','',false)");await db.exec(sql);await db.exec(sql);
-  const p=await member(A,async()=> (await db.query('select public.diary_read(-1) p')).rows[0].p);assert.equal(p.state.products.length,2);assert.equal(p.state.entries.filter(x=>x.sourceProductId==='kiwi').length,1);assert.equal(p.state.entries[0].category,'物品');assert.equal(p.state.products[0].deleted,true);
-  const ui=require('../site/ui-model.js');await save(A,s=>ui.archiveWish(s,s.entries[0].id,'a','kiwi-memory','2026-10-22'));
-  await db.query("select set_config('request.jwt.claim.sub','',false)");await db.exec(sql);
-  const after=await member(A,async()=> (await db.query('select public.diary_read(-1) p')).rows[0].p);
-  assert.equal(after.state.entries.filter(x=>x.kind==='wish').length,0);assert.equal(after.state.entries[0].kind,'memory');
+test('mail database: queue recipients are server-derived and worker RPC is private',async()=>{await save(A,s=>s.entries.push(order()));const [job]=await rows();assert.equal(job.recipient_email,'b@example.com');await assert.rejects(()=>member(A,()=>db.query('select public.diary_mail_claim(5)')),/permission denied/)});
+test('reinstall preserves catalog, wishes and history without generating notifications',async()=>{
+ await save(A,s=>{s.products.push({id:'tea',name:'奶茶',category:'陪伴',author:'a',createdAt:1});s.entries.push({id:'wish-keep',kind:'wish',author:'a',title:'一起旅行',createdAt:1,photos:[]})});
+ const count=(await rows()).length;await db.query("select set_config('request.jwt.claim.sub','',false)");await db.exec(require('./backend.cjs').install());await db.exec(require('./backend.cjs').install());
+ const p=await member(A,async()=>(await db.query('select public.diary_read(-1) p')).rows[0].p);assert.equal(p.state.products[0].id,'tea');assert.equal(p.state.entries[0].id,'wish-keep');assert.equal((await rows()).length,count);
 });
 
 const shipped=(s)=>Object.assign(s.entries.find(x=>x.kind==='order'),{status:'shipped',shippedAt:Date.now(),shippedBy:'b'});
 test('shipment mail: only recipient shipment queues one email back to the original sender',async()=>{
- await save(A,s=>s.entries.push(order()));await save(B,shipped);let jobs=await rows();assert.equal(jobs.length,2);const j=jobs.find(x=>x.payload.type==='shipment');assert.equal(j.actor_id,B);assert.equal(j.recipient_id,A);assert.equal(j.recipient_email,'a@example.com');assert.equal(j.event_key,'shipped:order-1');assert.ok(!JSON.stringify(j.payload).includes('PRIVATE_TEXT'));
+ await save(A,s=>s.entries.push(order()));await save(B,shipped);let jobs=await rows();assert.equal(jobs.length,2);const j=jobs.find(x=>x.payload.type==='shipment');assert.equal(j.actor_id,B);assert.equal(j.recipient_id,A);assert.equal(j.recipient_email,'a@example.com');assert.equal(j.event_key,j.couple_id+':shipped:order-1');assert.ok(!JSON.stringify(j.payload).includes('PRIVATE_TEXT'));
  await save(B,s=>Object.assign(s.entries[0],{reaction:'已经安排好啦',reactionBy:'b',reactionAt:Date.now()}));await save(A,s=>s.notifications.push({id:'view-only',actor:'a',recipient:'b',type:'reaction',entryId:'order-1'}));assert.equal((await rows()).length,2);
 });
 test('shipment mail: normal order replies stay in app; a later first shipment still sends once',async()=>{
  await save(A,s=>s.entries.push(order()));await save(B,s=>Object.assign(s.entries[0],{status:'received',reaction:'马上来',reactionBy:'b',receivedAt:Date.now()}));assert.equal((await rows()).length,1);await save(B,shipped);await save(B,()=>{});assert.equal((await rows()).filter(x=>x.payload.type==='shipment').length,1);
 });
 test('shipment permissions: sender cannot ship own order or forge shipment at creation',async()=>{
- await assert.rejects(()=>save(A,s=>s.entries.push({...order(),status:'shipped',shippedAt:Date.now(),shippedBy:'a'})),/DIARY_FORBIDDEN/);await save(A,s=>s.entries.push(order()));await assert.rejects(()=>save(A,s=>Object.assign(s.entries[0],{status:'shipped',shippedAt:Date.now(),shippedBy:'a'})),/DIARY_FORBIDDEN/);await assert.rejects(()=>save(B,s=>Object.assign(s.entries[0],{status:'shipped'})),/DIARY_INVALID/);await assert.rejects(()=>save(C,shipped),/DIARY_FORBIDDEN/);assert.equal((await rows()).length,1);
+ await assert.rejects(()=>save(A,s=>s.entries.push({...order(),status:'shipped',shippedAt:Date.now(),shippedBy:'a'})),/DIARY_FORBIDDEN/);await save(A,s=>s.entries.push(order()));await assert.rejects(()=>save(A,s=>Object.assign(s.entries[0],{status:'shipped',shippedAt:Date.now(),shippedBy:'a'})),/DIARY_FORBIDDEN/);await assert.rejects(()=>save(B,s=>Object.assign(s.entries[0],{status:'shipped'})),/DIARY_INVALID/);await assert.rejects(()=>member(C,()=>db.query('select public.diary_save(0,$1,$2::jsonb)',[randomUUID(),JSON.stringify(initial)])),/DIARY_FORBIDDEN/);assert.equal((await rows()).length,1);
 });
 test('shipment permissions: sent state cannot be undone or restamped; recipient preferences still apply',async()=>{
  await save(A,s=>s.entries.push(order()));await member(A,()=>db.query('select public.diary_mail_preference(false)'));await save(B,shipped);assert.equal((await rows()).length,1);await assert.rejects(()=>save(B,s=>s.entries[0].status='received'),/DIARY_INVALID/);await assert.rejects(()=>save(B,s=>s.entries[0].shippedAt+=1),/DIARY_FORBIDDEN/);await assert.rejects(()=>save(B,s=>delete s.entries[0].shippedAt),/DIARY_FORBIDDEN/);
 });
-test('shipment migration: rerunning 07 does not send or replay historical shipments',async()=>{
- await save(A,s=>s.entries.push(order()));await save(B,shipped);const before=(await rows()).length;await db.exec(fs.readFileSync(path.resolve(__dirname,'./fixtures/07-订单发货邮件.sql'),'utf8'));await save(B,s=>s.since='2026-05-21');assert.equal((await rows()).length,before);
+test('shipment migration: reinstalling current schema does not send or replay historical shipments',async()=>{
+ await save(A,s=>s.entries.push(order()));await save(B,shipped);const before=(await rows()).length;await db.exec(require('./backend.cjs').install());await save(B,s=>s.since='2026-05-21');assert.equal((await rows()).length,before);
 });

@@ -3,7 +3,7 @@ export function buildMail(job,siteUrl) {
   const actor=String(job.payload?.actor||'对方').slice(0,20),type=job.payload?.type;
   const mood=String(job.payload?.mood||'');
   let title,copy;
-  if(type==='order') {
+  if(type==='invite'){title=`${actor}邀请你一起记录恋爱日记`;copy='请使用收到这封邮件的邮箱注册并验证，打开邀请链接确认资料。邀请7天有效；如果你不认识邀请人，请忽略。'} else if(type==='letter'){title='你收到了一封新的私密信件';copy='另一半给你写了一封信，登录小屋查看吧。'} else if(type==='order') {
     title=`叮～收到来自${actor}的一份心意`;
     copy=`叮~，您的想你小铺收到了一条来自${actor}的订单，快来查看叭，别让他等太久喔`;
   } else if(type==='shipment') {
@@ -18,6 +18,7 @@ export function buildMail(job,siteUrl) {
     title=`叮～收到来自${actor}的${item[0]}`;copy=item[1];
   }
   const url=new URL(siteUrl);if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash)throw new Error('invalid_site_url');
+  if(type==='invite'){if(!/^[0-9a-f]{64}$/.test(job.payload?.token||''))throw Error('invalid_invite_token');url.hash='invite='+job.payload.token}
   const link=url.href;
   const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   return {subject:title,text:`${copy}\n\n打开我们的小屋：${link}\n\n邮件只作提醒，不附日记正文或照片。可以在“我们的小屋”关闭自己的邮件提醒。`,html:`<!doctype html><html lang="zh-CN"><body style="margin:0;background:#fff7f2;color:#403237;font:16px/1.9 system-ui,sans-serif"><div style="max-width:520px;padding:36px 24px;margin:auto"><p style="color:#b46f86;font-size:24px">✿</p><h1 style="font-size:21px;font-weight:400">${esc(title)}</h1><p>${esc(copy)}</p><p><a href="${esc(link)}" style="display:inline-block;padding:12px 22px;background:#a06079;color:white;text-decoration:none;border-radius:18px">回到我们的小屋 ♡</a></p><p style="font-size:12px;color:#79676e">邮件只作提醒，不附日记正文或照片。<br>可以在“我们的小屋”关闭自己的邮件提醒。</p></div></body></html>`};
@@ -37,10 +38,10 @@ export function createMailHandler(options={}) {
     const provider=get('MAIL_PROVIDER')||(get('QQ_SMTP_USER')?'qq':'resend');
     const qqUser=(get('QQ_SMTP_USER')||'').trim(),qqCode=(get('QQ_SMTP_AUTH_CODE')||'').trim(),gmailCode=(get('GMAIL_APP_PASSWORD')||'').replace(/\s/g,'');
     const smtpProvider=['qq','gmail'].includes(provider);
-    let smtpUser=qqUser,from=provider==='qq'?`恋爱日记 <${qqUser}>`:get('DIARY_MAIL_FROM'),allowedEmails=null;
+    let smtpUser=provider==='gmail'?(get('GMAIL_SMTP_USER')||'').trim().toLowerCase():qqUser,from=smtpProvider?`恋爱日记 <${smtpUser}>`:get('DIARY_MAIL_FROM');
     if(!base||!key||!site||!['qq','gmail','resend'].includes(provider)
       ||(provider==='qq'&&(!/^[A-Za-z0-9._+-]+@(?:qq|foxmail)\.com$/i.test(qqUser)||!qqCode))
-      ||(provider==='gmail'&&!gmailCode)||(provider==='resend'&&(!resend||!from)))return new Response('Mail worker is not configured',{status:503});
+      ||(provider==='gmail'&&(!gmailCode||!/^[A-Za-z0-9._+-]+@(?:gmail|googlemail)\.com$/.test(smtpUser)))||(provider==='resend'&&(!resend||!from)))return new Response('Mail worker is not configured',{status:503});
     try{
       const b=new URL(base);if(b.protocol!=='https:'||!b.hostname.endsWith('.supabase.co')||b.pathname!=='/')throw new Error();
       buildMail({payload:{type:'order'}},site);
@@ -52,14 +53,6 @@ export function createMailHandler(options={}) {
     }
     let transport;
     try {
-      if(provider==='gmail'){
-        const context=await rpc('diary_mail_context',{});
-        smtpUser=String(context?.sender_email||'').toLowerCase();
-        allowedEmails=context?.allowed_emails;
-        if(context?.sender_slot!=='b'||!Array.isArray(allowedEmails)||allowedEmails.length!==2
-          ||!allowedEmails.includes(smtpUser)||!/^[A-Za-z0-9._+-]+@(?:gmail|googlemail)\.com$/.test(smtpUser))throw new Error('invalid_sender_context');
-        from=`恋爱日记 <${smtpUser}>`;
-      }
       if(smtpProvider){
         if(options.smtpTransport)transport=options.smtpTransport;
         else{
@@ -77,7 +70,6 @@ export function createMailHandler(options={}) {
         if(i)await pause(600);
         let outcome='retry',providerId=null,error=null,smtpStarted=false;
         try{
-          if(allowedEmails&&!allowedEmails.includes(String(job.recipient_email).toLowerCase())){outcome='failed';error='recipient_not_allowed';throw new Error('recipient_not_allowed')}
           const mail=buildMail(job,site);
           if(smtpProvider){
             // Verify performs authentication only, and does not send a message.
@@ -91,6 +83,7 @@ export function createMailHandler(options={}) {
             if(!info.accepted?.some(address=>String(address).toLowerCase()===job.recipient_email.toLowerCase()))throw new Error('smtp_not_confirmed');
             providerId=info.messageId||`diary-${job.id}`;outcome='sent';
           }else{
+            if(!await rpc('diary_mail_smtp_begin',{p_id:job.id,p_lease:job.lease})){results.unconfirmed++;continue}
             const response=await fetcher('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+resend,'Content-Type':'application/json','Idempotency-Key':'diary/'+job.id},body:JSON.stringify({from,to:[job.recipient_email],...mail}),signal:AbortSignal.timeout(15000)});
             if(response.ok){const data=await response.json();if(typeof data.id!=='string'||!data.id)throw new Error('provider_missing_id');providerId=data.id;outcome='sent'}
             else{error='provider_http_'+response.status;outcome=[400,404,422].includes(response.status)?'failed':'retry'}

@@ -2,30 +2,15 @@ const {test,before,after}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');const path=require('node:path');const {pathToFileURL}=require('node:url');const {randomUUID}=require('node:crypto');
 let db;const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222222222',C='33333333-3333-4333-8333-333333333333';
-before(async()=>{
- const {PGlite}=await require('./pglite.cjs')();db=new PGlite();await db.waitReady;
- await db.exec(`create role anon;create role authenticated;create schema auth;create schema storage;
- create table auth.users(id uuid primary key);
- create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
- create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
- create table storage.objects(id uuid default gen_random_uuid() primary key,bucket_id text,name text,metadata jsonb);
- create function storage.foldername(text) returns text[] language sql immutable as $$select (string_to_array($1,'/'))[1:array_length(string_to_array($1,'/'),1)-1]$$;
- alter table storage.objects enable row level security;
- grant usage on schema public,auth,storage to anon,authenticated;
- grant select,insert,delete on storage.objects to authenticated;
- insert into auth.users values('${A}'),('${B}'),('${C}');`);
- await db.exec(fs.readFileSync(path.resolve(__dirname,'./fixtures/01-初始化.sql'),'utf8'));
- // A second run must preserve data and policies.
- await db.exec(fs.readFileSync(path.resolve(__dirname,'./fixtures/01-初始化.sql'),'utf8'));
- await db.query('insert into public.diary_members(user_id,slot) values($1,\'a\'),($2,\'b\')',[A,B]);
-});
+before(async()=>{const {PGlite}=await require('./pglite.cjs')();db=new PGlite();await db.waitReady;await require('./backend.cjs').bootstrap(db)});
+
 after(async()=>{await db?.close()});
 async function as(id,fn){await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec('set role authenticated');try{return await fn()}finally{await db.exec('reset role')}}
 async function read(id){return as(id,async()=>{const q=await db.query('select public.diary_read(-1) packet');return q.rows[0].packet})}
 async function save(id,p,change,commit=randomUUID()){const next=structuredClone(p.state);change(next);return as(id,async()=>{const q=await db.query('select public.diary_save($1,$2,$3::jsonb) packet',[p.revision,commit,JSON.stringify(next)]);return q.rows[0].packet})}
 function entry(kind,id,author='a'){return {id,kind,author,title:'测试标题',content:'两个人的小事',createdAt:Date.now(),date:'2026-10-22',photos:[],status:'active'}}
-test('database: only the two slots can exist',async()=>{await assert.rejects(()=>db.query('insert into public.diary_members values($1,\'c\')',[C]));await assert.rejects(()=>db.query('insert into public.diary_members values($1,\'a\')',[C]));assert.equal((await read(A)).role,'a');assert.equal((await read(B)).role,'b')});
-test('database: a third authenticated user cannot read, save, or select private tables',async()=>{await assert.rejects(()=>read(C),/DIARY_FORBIDDEN/);await assert.rejects(()=>as(C,()=>db.query('select * from public.diary_house')),/permission denied/);const p=await read(A);await assert.rejects(()=>save(C,p,()=>{}),/DIARY_FORBIDDEN/)});
+test('database: only the two slots can exist',async()=>{await assert.rejects(()=>db.query('insert into public.diary_members(user_id,slot,couple_id) values($1,\'c\',(select id from public.diary_house limit 1))',[C]));await assert.rejects(()=>db.query('insert into public.diary_members(user_id,slot,couple_id) values($1,\'a\',(select id from public.diary_house limit 1))',[C]));assert.equal((await read(A)).role,'a');assert.equal((await read(B)).role,'b')});
+test('database: a third authenticated user cannot read, save, or select private tables',async()=>{assert.equal((await read(C)).onboarding,true);await assert.rejects(()=>as(C,()=>db.query('select * from public.diary_house')),/permission denied/);const p=await read(A);await assert.rejects(()=>save(C,p,()=>{}),/DIARY_FORBIDDEN/)});
 
 test('database: anonymous visitors cannot execute read RPC',async()=>{await db.exec('set role anon');try{await assert.rejects(()=>db.query('select public.diary_read(-1)'),/permission denied/)}finally{await db.exec('reset role')}});
 test('database: a saved mood is shared, without client current role in persisted data',async()=>{const p=await read(A);await save(A,p,s=>s.entries.push(entry('moment','mood-1')));const b=await read(B);assert.equal(b.state.entries[0].title,'测试标题');assert.equal(b.state.current,undefined)});

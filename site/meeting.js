@@ -17,7 +17,7 @@ function meetingCompact(x){const p=x.plan;return `<details class="meeting-compac
 async function meetingAfterRender(){
   const owner=cloud?.session?.user.id;if(!owner||!authenticated||meetingLoading)return;
   if(meetingOwner!==owner){meetingOwner=owner;meetingMarks=null;meetingAttempts.clear()}
-  if(meetingMarks===null){meetingLoading=true;try{const marks=await cloud.rpc('diary_meeting_marks',{});if(cloud?.session?.user.id!==owner)return;meetingMarks=marks;if(tab==='plan'){paintContent();hydratePhotos()}}catch(e){if(cloud?.session?.user.id===owner){meetingMarks={acknowledged:[],celebrated:[]};const hint=$('meeting-sync-hint');if(hint)hint.textContent='一次性动效尚未连接，请先安装06见面计划升级脚本。'}}finally{meetingLoading=false}}
+  if(meetingMarks===null){meetingLoading=true;try{const marks=await cloud.rpc('diary_meeting_marks',{});if(cloud?.session?.user.id!==owner)return;meetingMarks=marks;if(tab==='plan'){paintContent();hydratePhotos()}}catch(e){if(cloud?.session?.user.id===owner){meetingMarks={acknowledged:[],celebrated:[]};const hint=$('meeting-sync-hint');if(hint)hint.textContent='提醒状态暂未同步，请稍后重试或联系站点维护者。'}}finally{meetingLoading=false}}
   if(cloud?.session?.user.id!==owner||tab!=='plan'||document.hidden)return;
   const focus=DiaryUIModel.meetingFocus(state.entries,day(0),meetingMarks?.acknowledged||[]).focus;
   if(!focus||focus.phase!=='together'||focus.start!==day(0)||meetingMarks?.celebrated?.includes(focus.plan.id)||meetingAttempts.has(focus.plan.id))return;

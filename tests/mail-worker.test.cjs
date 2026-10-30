@@ -29,20 +29,17 @@ test('QQ SMTP rechecks a cancelled lease before sending',async()=>{
   const {createMailHandler}=await load();let sent=0;const handler=createMailHandler({env:qqEnv,smtpTransport:{verify:async()=>{},sendMail:async()=>{sent++}},fetch:async(url)=>{if(url.endsWith('/diary_mail_claim'))return ok([job]);return ok(false)}});
   const r=await (await handler(req())).json();assert.equal(r.unconfirmed,1);assert.equal(sent,0);
 });
-test('Gmail reads the fixed member-b sender from server membership and ignores addresses in the request',async()=>{
-  const {createMailHandler}=await load();let message;const gmailEnv={...qqEnv,MAIL_PROVIDER:'gmail',GMAIL_APP_PASSWORD:'test app password'};
+test('Gmail uses independent operator account and ignores sender in HTTP request',async()=>{
+  const {createMailHandler}=await load();let message;const gmailEnv={...qqEnv,MAIL_PROVIDER:'gmail',GMAIL_APP_PASSWORD:'test app password',GMAIL_SMTP_USER:'operator@gmail.com'};
   const handler=createMailHandler({env:gmailEnv,smtpTransport:{verify:async()=>{},sendMail:async m=>{message=m;return {accepted:[m.to],messageId:m.messageId}}},fetch:async(url)=>{
     if(url.endsWith('/diary_mail_context'))return ok({sender_slot:'b',sender_email:'member-b@gmail.com',allowed_emails:['member-a@example.com','member-b@gmail.com']});
     if(url.endsWith('/diary_mail_claim'))return ok([{...job,recipient_email:'member-a@example.com'}]);return ok(true);
   }});
   const request=new Request('https://example.supabase.co/functions/v1/diary-mail',{method:'POST',headers:{'x-diary-mail-secret':env.DIARY_MAIL_WORKER_SECRET},body:JSON.stringify({from:'attacker@gmail.com',to:'stranger@example.com'})});
-  const r=await (await handler(request)).json();assert.equal(r.accepted,1);assert.equal(message.from,'恋爱日记 <member-b@gmail.com>');assert.equal(message.to,'member-a@example.com');
+  const r=await (await handler(request)).json();assert.equal(r.accepted,1);assert.equal(message.from,'恋爱日记 <operator@gmail.com>');assert.equal(message.to,'member-a@example.com');
 });
-test('Gmail refuses queue recipients outside the two bound accounts',async()=>{
-  const {createMailHandler}=await load();let sent=0,ack;const handler=createMailHandler({env:{...qqEnv,MAIL_PROVIDER:'gmail',GMAIL_APP_PASSWORD:'local-test-only'},smtpTransport:{verify:async()=>{},sendMail:async()=>{sent++}},fetch:async(url,o)=>{
-    if(url.endsWith('/diary_mail_context'))return ok({sender_slot:'b',sender_email:'member-b@gmail.com',allowed_emails:['member-a@example.com','member-b@gmail.com']});
-    if(url.endsWith('/diary_mail_claim'))return ok([{...job,recipient_email:'stranger@example.com'}]);ack=JSON.parse(o.body);return ok(true);
-  }});const r=await (await handler(req())).json();assert.equal(r.failed,1);assert.equal(sent,0);assert.equal(ack.p_error,'recipient_not_allowed');
+test('Gmail without configured operator address is unavailable before claiming mail',async()=>{
+ const {createMailHandler}=await load();let calls=0;const handler=createMailHandler({env:{...qqEnv,MAIL_PROVIDER:'gmail',GMAIL_APP_PASSWORD:'local-test-only'},fetch:async()=>{calls++;throw Error()}});assert.equal((await handler(req())).status,503);assert.equal(calls,0);
 });
 test('the five requested mail bodies substitute member-b and member-a names',async()=>{
   const {buildMail}=await load();const expected={order:'叮~，您的想你小铺收到了一条来自小夏的订单，快来查看叭，别让他等太久喔',moment:'叮~，小夏记录了现在的心情，好像不太开心哎，快来看看他叭~',wish:'叮~，小夏许下了一个心愿，来帮他实现叭~',plan:'叮~，小夏更新了一条见面计划，一起看看去哪里相见叭~',memory:'叮~，小夏记录了一个美好回忆，快来相册记住他的表情叭~'};
@@ -50,3 +47,7 @@ test('the five requested mail bodies substitute member-b and member-a names',asy
 });
 
 test('shipment mail body: actor name is substituted, private order text is not included',async()=>{const {buildMail}=await load();const m=buildMail({...job,payload:{type:'shipment',actor:'小夏',content:'PRIVATE_ORDER'}},env.DIARY_SITE_URL);assert.equal(m.subject,'叮～小夏为你的订单发货啦');assert.ok(m.text.startsWith('叮~，小夏已为您的想你小铺订单发货，快来看看叭~'));assert.ok(!JSON.stringify(m).includes('PRIVATE_ORDER'))});
+
+test('invitation mail uses only a validated fragment token; private letter reminders exclude content',async()=>{
+ const {buildMail}=await load();const token='a'.repeat(64);const m=buildMail({...job,payload:{type:'invite',actor:'<script>test</script>',token}},env.DIARY_SITE_URL);assert.ok(m.text.includes('#invite='+token));assert.ok(!m.html.includes('<script>'));assert.throws(()=>buildMail({...job,payload:{type:'invite',token:'https://attacker.example'}},env.DIARY_SITE_URL));const letter=buildMail({...job,payload:{type:'letter',content:'SECRET_LETTER'}},env.DIARY_SITE_URL);assert.ok(!JSON.stringify(letter).includes('SECRET_LETTER'));
+});

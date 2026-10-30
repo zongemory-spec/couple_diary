@@ -1,4 +1,4 @@
-/* 双人私密网页版：固定账号登录，云端事务保存，私密照片。 */
+/* 双人私密网页版：邮箱注册与双人绑定，云端事务保存，私密照片。 */
 'use strict'
 const $ = id => document.getElementById(id)
 const escapeHTML = value => String(value == null?'':value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))

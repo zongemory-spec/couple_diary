@@ -1,0 +1,14 @@
+"""Rebuild the offline operator setup page from authoritative source files."""
+from pathlib import Path
+import json
+R=Path(__file__).resolve().parents[1]
+def inline(p):return (R/p).read_text(encoding='utf-8-sig').replace('</script','<\\/script')
+page='''<!doctype html><html lang="zh-CN"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>恋爱日记 · 站点维护者配置</title><style>body{background:#fff7f2;color:#403237;font:16px/1.8 system-ui;margin:30px auto;padding:20px;max-width:800px}input,textarea{box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbb6bc;border-radius:12px;font:inherit}button{padding:12px 20px;border:0;border-radius:12px;background:#95596f;color:white;cursor:pointer;margin:12px 8px 12px 0}label{display:block;margin:18px 0}textarea{height:180px}#message{color:#943f4f}</style><h1>一个站点，多对情侣</h1><p>此页面仅供维护者配置。普通用户只需打开已部署的网站，注册邮箱、邀请另一半、确认资料。</p><ol><li>在全新 Supabase 项目运行下方安装 SQL。</li><li>开启邮箱注册和 Confirm email；配置一次自定义 SMTP、正式站点 URL 和允许的跳转地址。</li><li>填写下面两个公开配置，下载 config.js 覆盖 site/config.js，然后运行构建，发布 dist。</li><li>按 docs/MAIL.md 配置统一发信服务和定时任务，支持 QQ SMTP，不要求用户使用 Gmail。</li></ol><p>旧版单对情侣数据库请先备份，用新项目部署；安装器会拒绝覆盖旧结构。</p><form id="setup-form"><label>Project URL<input id="url" type="url" required placeholder="https://项目.supabase.co"></label><label>Publishable key（不是 Secret / service_role）<input id="key" required placeholder="sb_publishable_…"></label><button>下载公开 config.js</button></form><button id="sql-download">下载安装 SQL</button><p id="message" role="status"></p><details><summary>查看完整安装 SQL</summary><textarea id="sql" readonly></textarea></details><p>密钥仅填在 Supabase 后台，绝不能上传到 GitHub 或网页。此配置工具不请求网络、不收集输入。</p><script>INSTALLER</script><script>CLOUD</script><script>MODEL</script><script>
+function download(name,text,type){const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+document.getElementById('sql').value=installer;
+document.getElementById('sql-download').onclick=()=>download('install.sql',installer,'text/plain');
+document.getElementById('setup-form').onsubmit=e=>{e.preventDefault();try{const r=DiarySetup.prepare({url:document.getElementById('url').value,key:document.getElementById('key').value},installer);download('config.js',r.configText,'text/javascript');document.getElementById('message').textContent='已生成公开配置，请覆盖 site/config.js 后构建发布。'}catch(e){document.getElementById('message').textContent=e.message}};
+</script></html>'''
+page=page.replace('INSTALLER','const installer='+json.dumps(inline('database/install.sql'),ensure_ascii=False)+';').replace('CLOUD',inline('site/cloud.js')).replace('MODEL',inline('tools/setup-model.js'))
+(R/'setup.html').write_text(page,encoding='utf-8')
+print('Rebuilt offline setup.html')

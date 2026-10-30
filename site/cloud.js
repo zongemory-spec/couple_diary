@@ -1,4 +1,4 @@
-/* Private two-person backend. No SDK/CDN dependency; no diary records stored locally. */
+/* Private multi-couple backend. No SDK/CDN dependency; no diary records stored locally. */
 ;(function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.DiaryCloud=api})(typeof window!=='undefined'?window:globalThis,function(){
   'use strict';
   class CloudError extends Error{constructor(message,code='',status=0,packet=null){super(message);this.code=code;this.status=status;this.packet=packet}}
@@ -37,10 +37,12 @@
       let data;try{data=await response.json()}catch(e){data={}}
       if(!response.ok){
         const raw=String(data.message||data.msg||data.error_description||data.error||'');let message='这次没有保存成功，请稍后重试。',code=data.code||'REQUEST';
-        if(/DIARY_FORBIDDEN/.test(raw)){message='这个账号还没有加入两人名单，请检查后台配置。';code='FORBIDDEN'}
+        if(/DIARY_FORBIDDEN/.test(raw)){message='当前账号没有操作这个小屋的权限。';code='FORBIDDEN'}
         else if(/DIARY_(INVALID|LIMIT)/.test(raw))message=raw.replace(/^.*?DIARY_(INVALID|LIMIT):\s*/,'');
         else if(/Invalid login credentials/i.test(raw))message='邮箱或密码不正确。';
-        else if(/Email not confirmed/i.test(raw))message='这个账号尚未确认，请在后台创建用户时勾选 Auto Confirm User。';
+        else if(/Email not confirmed/i.test(raw))message='请先打开注册邮件中的确认链接，再登录。';
+        else if(/password/i.test(raw))message='密码不符合要求，请使用至少10位且不易猜测的密码。';
+        else if(/signup.*disabled/i.test(raw))message='站点尚未开放注册，请联系维护者。';
         else if(response.status===429)message='操作有点频繁，请稍等一分钟再试。';
         else if(response.status>=500)message='云端暂时不可用，请稍后重试，并检查项目是否暂停。';
         else if(response.status===401)message='登录已过期，请重新登录。';
@@ -53,6 +55,16 @@
       this.remember(result);
       try{return await this.read(-1)}catch(e){if(e.code==='FORBIDDEN')this.clear();throw e}
     }
+    redirectUrl(){return globalThis.location.origin+globalThis.location.pathname}
+    async signUp(email,password){
+      if(password.length<10)throw new CloudError('密码至少10位。','INPUT');
+      const data=await this.raw('/auth/v1/signup?redirect_to='+encodeURIComponent(this.redirectUrl()),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email.trim(),password})});
+      if(data.access_token){this.remember(data);return this.read(-1)}
+      return {confirmationRequired:true};
+    }
+    recover(email){if(!email)throw new CloudError('请先填写邮箱。','INPUT');return this.raw('/auth/v1/recover?redirect_to='+encodeURIComponent(this.redirectUrl()),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})})}
+    resend(email){if(!email)throw new CloudError('请先填写邮箱。','INPUT');return this.raw('/auth/v1/resend?redirect_to='+encodeURIComponent(this.redirectUrl()),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'signup',email})})}
+    updatePassword(password){if(password.length<10)throw new CloudError('密码至少10位。','INPUT');return this.request('/auth/v1/user',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})})}
     async refresh(){
       if(this.refreshing)return this.refreshing;
       if(!this.session)throw new CloudError('请先登录。','AUTH',401);

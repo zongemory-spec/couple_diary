@@ -1,5 +1,5 @@
 /* Cache only this site's public visual shell. Never intercept auth/API/photo requests. */
-const CACHE='diary-shell-v1';
+const CACHE='diary-shell-multi-v2';
 self.addEventListener('install',()=>self.skipWaiting());
 self.addEventListener('activate',event=>event.waitUntil((async()=>{for(const key of await caches.keys())if(key.startsWith('diary-shell-')&&key!==CACHE)await caches.delete(key);await self.clients.claim()})()));
 self.addEventListener('fetch',event=>{

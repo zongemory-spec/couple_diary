@@ -18,6 +18,9 @@ function applyPacket(packet){
   if(packet.state){state={...packet.state,current:viewer};rebuildProducts();render()}
 }
 function showAuth(message=''){
+  stopLobby();$('lobby-view').hidden=true;
+  selectAuthMode('login');
+  $('login-password').value='';$('login-password').type='password';$('password-toggle').textContent='显示';$('password-toggle').setAttribute('aria-pressed','false');
   authenticated=false;authEpoch++;stopPolling();photoObserver?.disconnect()
   const dialog=$('modal');if(dialog.open)dialog.close();clearTimeout(modalCloseTimer)
   clearPhotoDraft();clearDocumentDraft();resetMeeting();draft=null;draftUploads=[];cart={};tab='home';revision=-1;ui.query='';ui.open={};$('record-search').value='';$('toast').textContent='';$('toast').classList.remove('visible')
@@ -28,6 +31,9 @@ function showAuth(message=''){
   $('auth-message').textContent=message;connection('offline','等待登录')
 }
 function enterHouse(packet){
+  $('login-password').value='';
+  if(packet?.onboarding){showLobby(packet);return}
+  stopLobby();$('lobby-view').hidden=true;
   authenticated=true;authEpoch++;$('auth-view').hidden=true;$('diary-main').inert=false;document.body.classList.remove('auth-locked')
   $('login-password').value='';applyPacket(packet);connection('online','已同步');startPolling()
 }
@@ -61,7 +67,8 @@ async function syncNow(manual=false){
 async function bootCloud(){
   try{cloud=new DiaryCloud.Client(window.DIARY_CONFIG||{});cloud.onAuthLost=()=>showAuth('登录已结束，请重新登录。')}
   catch(e){showAuth('小屋还在准备中：请先按仓库README完成配置，再重新部署。');$('login-submit').disabled=true;return}
-  if(!cloud.session){showAuth('');return}
+  try{if(await restoreAuthLink())return}catch(e){showAuth(e.message);return}
+  if(!cloud.session){showAuth(pendingInvite()?'请使用受邀邮箱登录；没有账号可以先注册并验证邮箱。':'');return}
   $('auth-message').textContent='正在打开我们的小屋…'
   try{enterHouse(await cloud.read(-1))}catch(e){showAuth(e.message)}
 }
@@ -69,9 +76,15 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('login-form').addEventListener('submit',async event=>{
     event.preventDefault();const button=$('login-submit');if(button.disabled||!cloud)return
     button.disabled=true;button.textContent='正在打开小屋…';$('auth-message').textContent=''
-    try{enterHouse(await cloud.signIn($('login-email').value,$('login-password').value))}
+    try{
+      if(authMode==='password'){await cloud.updatePassword($('login-password').value);selectAuthMode('login');enterHouse(await cloud.read(-1))}
+      else if(authMode==='signup'){
+        const packet=await cloud.signUp($('login-email').value,$('login-password').value);
+        if(packet.confirmationRequired){$('login-password').value='';selectAuthMode('login');$('auth-message').textContent='请查收邮箱确认链接，验证后再登录；如果已注册可直接登录或重置密码。'}else enterHouse(packet);
+      }else enterHouse(await cloud.signIn($('login-email').value,$('login-password').value));
+    }
     catch(e){$('auth-message').textContent=e.message||'暂时无法登录，请稍后再试。'}
-    finally{button.disabled=false;button.textContent='进入我们的小屋 ↗'}
+    finally{button.disabled=false;button.textContent=authMode==='signup'?'注册并验证邮箱':authMode==='password'?'保存新密码':'进入我们的小屋 ↗'}
   })
   $('password-toggle').onclick=()=>{const input=$('login-password'),show=input.type==='password';input.type=show?'text':'password';$('password-toggle').textContent=show?'隐藏':'显示';$('password-toggle').setAttribute('aria-pressed',String(show));$('password-toggle').setAttribute('aria-label',show?'隐藏密码':'显示密码')}
   $('connection-status').onclick=()=>syncNow(true)

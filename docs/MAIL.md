@@ -1,26 +1,45 @@
-# 可选邮件提醒（先部署好基础网站再做）
+# 邮件：维护者配置一次，使用者只提供收件邮箱
 
-初始化脚本已安装队列与权限，但不会自动发送邮件。基础功能不依赖邮件。
+## 两条独立链路
 
-当前Gmail方案固定使用**成员B绑定的登录Gmail**作为发件人；A操作提醒B，B操作提醒A。只发送给两个绑定用户；只有接收者本人能关闭自己的接收开关。
+1. **注册确认、重发确认、密码找回**：Supabase Auth 自己投递，在后台 Authentication 配 Custom SMTP、邮箱确认开关和站点跳转地址。此配置是开放给其他用户注册的必需条件。建议 QQ/其他 SMTP；不强制 Gmail。
+2. **邀请、来信、日记事件提醒**：数据库队列 → 每分钟调度 → `diary-mail` Edge Function → QQ SMTP / Resend / 可选 Gmail。该链路故障不会回滚已保存的日记。页面只提示“排队”，不宣称邮件已送达。
 
-1. 如果需要Gmail发信，请在创建两位Auth账号时让成员B使用本人同意作为发件人的Gmail。
-2. 该Google账号开启两步验证，在 https://myaccount.google.com/apppasswords 生成16位应用专用密码，不能用登录密码替代。
-3. Supabase → Edge Functions → Secrets 填写：`MAIL_PROVIDER=gmail`、`GMAIL_APP_PASSWORD=应用专用密码`、`DIARY_SITE_URL=你的正式HTTPS首页`、`DIARY_MAIL_WORKER_SECRET=自行生成的至少32字符随机值`。
-4. Edge Functions → 创建名为 **diary_mail** 的函数，用 `supabase/functions/diary-mail/index.ts` 全部替换index.ts并Deploy。Verify JWT with legacy secret关闭；代码会校验单独的后台任务密钥。
-5. 打开 `database/mail-schedule.example.sql`。把 `YOUR_PROJECT_REF` 替换为自己Project URL中 `.supabase.co` 前的项目编号；把中文密钥占位内容替换为同一份任务密钥，在自己的SQL Editor运行。
-6. 不要提交填好密钥的SQL。它将任务密钥写入自己项目的Vault，并让后台每分钟检查队列。前端配置无需密码。
-7. 下新订单，确认收件箱/垃圾箱。需要排查时运行：
+普通用户可使用 QQ、163、Outlook、Gmail 等合法邮箱注册，不需要给程序发件授权码。维护者选择的发件服务不限制用户的收件邮箱提供商。
 
-```sql
-select created_at,status,attempts,last_error
-from public.diary_mail_outbox order by created_at desc limit 5;
+## Edge Function
+
+先安装 Supabase CLI 并登录、关联你自己的项目，在源码目录运行：
+
+```sh
+supabase functions deploy diary-mail --no-verify-jwt
 ```
 
-`sent`是服务接受提交，仍需实际确认收到；`smtp_reply_535`是SMTP认证被拒绝。先核对应用专用密码与成员B邮箱一致。更改Google登录密码会撤销旧应用专用密码，需自行重建并替换Secret。
+函数用至少32字符的 `x-diary-mail-secret` 独立验证调度调用；必须配好 secret。服务器端需要：
 
-新订单、首次发货、新心情、新回忆、新心愿、新建/修改计划会提醒；普通回复、阅读和商品维护不额外发信。历史事件不会因启用邮件自动补发。不要批量重置uncertain/sent等邮件状态以免重复。
+| Secret | 用途 |
+| --- | --- |
+| SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY | Supabase Edge 环境提供，服务端专用 |
+| DIARY_MAIL_WORKER_SECRET | 本地随机生成至少32字符，与调度 Vault 相同 |
+| DIARY_SITE_URL | 正式 HTTPS 网站地址，允许子目录，不带 query/hash |
+| MAIL_PROVIDER | `qq`（推荐个人体验）、`resend` 或 `gmail` |
+| QQ_SMTP_USER / QQ_SMTP_AUTH_CODE | QQ/foxmail 发信地址与邮箱设置中的 SMTP 授权码；不是网页登录密码 |
+| RESEND_API_KEY / DIARY_MAIL_FROM | 选择 resend 时填写，经验证域名的发件地址 |
+| GMAIL_SMTP_USER / GMAIL_APP_PASSWORD | 仅选择 gmail 时填写，维护者独立发件账号；与情侣A/B无关 |
 
-QQ/Resend适配代码也保留，但不是本新手路线；不要把其他服务密码填成Gmail应用专用密码。
+QQ 使用 smtp.qq.com:465，TLS；Gmail 使用 smtp.gmail.com:465，是否可达取决于运行区域。首次部署可在 Supabase Edge Secrets 界面填入，避免把真实密钥保存到仓库。
 
-官方参考：https://support.google.com/accounts/answer/185833 、 https://supabase.com/docs/guides/functions/quickstart-dashboard 、 https://supabase.com/docs/guides/functions/limits
+## 启用调度
+
+打开 `database/mail-schedule.example.sql`，在**本地私有副本**替换项目域名和随机任务密钥，然后 SQL Editor 执行。脚本启用 pg_cron / pg_net，把任务密钥存入 Vault，每分钟调用一次 `/functions/v1/diary-mail`。先确认所选项目支持这些扩展。重复部署前可在 Cron 页面检查同名任务，避免人为重复新建。
+
+## 行为与诊断
+
+- 邀请7天过期，每屋每天最多5次；只能受邀的已确认邮箱接受，撤销/重发立即使旧链接失效。邀请码散列保存于邀请表；原始值仅在受保护邮件队列中用于发信和本人取回。
+- 普通事件只向当前小屋另一半投递，发前再次校验成员/邮箱/偏好。每屋每天最多50个普通事件；全站滚动24小时发送预算100封，属于个人展示项目的保守默认值，可在 SQL 调整。
+- 邮件只作提醒，不附日记正文、信件正文、照片或附件。站内信不受关闭邮箱提醒影响。
+- `pending` 等待、`processing` 已领取、`sending` 提交中、`sent` 服务商确认、`skipped` 已取消、`expired` 超过23小时、`failed` 失败、`uncertain` 无法确认结果。`sent` 不等于保证进入收件箱。
+- SMTP 提交后超时标 uncertain，避免自动重复发送；维护者核对服务商记录后处理。初次联调请先自己发一条测试事件，再看 outbox 和函数聚合结果，勿公开导出邮箱/token。
+- 不设置业务发信时，复制链接完成邀请，站内功能正常；新用户注册确认仍要 Auth SMTP。
+
+参考：[Supabase 自定义 SMTP](https://supabase.com/docs/guides/auth/auth-smtp)。

@@ -1,4 +1,4 @@
--- 先部署 diary_mail Edge Function 和 03-邮件提醒.sql，再配置这里。
+-- 先部署 diary_mail Edge Function 和 database/install.sql，再配置这里。
 -- 在自己的电脑本地生成一个至少 32 字符的随机 secret，和 Edge Secrets 中完全一致。
 -- 只替换下一段中的占位文本；不要把密钥发到聊天、写进网页或上传到 Cloudflare。
 begin;
@@ -14,7 +14,7 @@ begin
 end $$;
 select cron.schedule('diary-mail-every-minute','* * * * *',$job$
   select net.http_post(
-    url:='https://YOUR_PROJECT_REF.supabase.co/functions/v1/diary_mail',
+    url:='https://YOUR_PROJECT_REF.supabase.co/functions/v1/diary-mail',
     headers:=jsonb_build_object('Content-Type','application/json','x-diary-mail-secret',
       (select decrypted_secret from vault.decrypted_secrets where name='diary_mail_worker_secret')),
     body:='{}'::jsonb,timeout_milliseconds:=90000
